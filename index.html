@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HL Steel · 供应商报价系统</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #f0f4f8;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            padding: 2rem 1rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            flex: 1;
+        }
+
+        /* 头部 */
+        .header {
+            background: linear-gradient(135deg, #1e3c4f 0%, #2a4a63 100%);
+            color: white;
+            padding: 1.8rem 2.5rem;
+            border-radius: 32px;
+            margin-bottom: 2rem;
+            box-shadow: 0 20px 30px -10px rgba(0,40,60,0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header .badge {
+            background: #ffb347;
+            color: #1e2f47;
+            padding: 0.4rem 1.5rem;
+            border-radius: 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .timestamp-card {
+            background: rgba(255,255,255,0.15);
+            padding: 0.8rem 2rem;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+            font-size: 1.2rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        /* 供应商信息栏 */
+        .supplier-info {
+            background: white;
+            border-radius: 24px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 20px rgba(0,20,40,0.08);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .supplier-selector {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .supplier-selector label {
+            font-weight: 600;
+            color: #2d4a6e;
+            font-size: 1.1rem;
+        }
+
+        .supplier-selector select {
+            padding: 0.8rem 2rem 0.8rem 1.2rem;
+            border: 2px solid #dde5ed;
+            border-radius: 40px;
+            font-size: 1rem;
+            font-weight: 500;
+            background: white;
+            cursor: pointer;
+            min-width: 200px;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232d4a6e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.2rem;
+        }
+
+        .supplier-selector select:focus {
+            outline: none;
+            border-color: #2a6bff;
+        }
+
+        .info-note {
+            color: #4a6b8a;
+            background: #f0f7ff;
+            padding: 0.5rem 1.5rem;
+            border-radius: 40px;
+            font-size: 0.95rem;
+        }
+
+        .info-note i {
+            font-style: normal;
+            color: #e67e22;
+            font-weight: 600;
+        }
+
+        /* 表格区域 */
+        .materials-table {
+            background: white;
+            border-radius: 28px;
+            padding: 2rem 1.5rem;
+            box-shadow: 0 12px 30px rgba(0,20,40,0.1);
+            margin-bottom: 2rem;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;
+        }
+
+        th {
+            background: #eef2f6;
+            padding: 1rem 0.5rem;
+            font-weight: 600;
+            color: #1e2f47;
+            font-size: 0.95rem;
+            text-align: center;
+            border-radius: 16px 16px 0 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        td {
+            padding: 0.9rem 0.3rem;
+            border-bottom: 1px solid #e0e7ed;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .row-number {
+            font-weight: 600;
+            color: #2a6bff;
+            background: #e9effa;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 0 auto;
+        }
+
+        .spec-text {
+            font-weight: 500;
+            color: #1e2f47;
+        }
+
+        .supplier-tag {
+            background: #e1f0fa;
+            color: #0b4b7a;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        /* 价格输入框 */
+        .price-input {
+            width: 110px;
+            padding: 0.7rem 0.5rem;
+            border: 2px solid #dde5ed;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            transition: all 0.2s;
+            background: #fafcff;
+        }
+
+        .price-input:focus {
+            outline: none;
+            border-color: #2a6bff;
+            box-shadow: 0 0 0 3px rgba(42,107,255,0.1);
+            background: white;
+        }
+
+        .price-input::placeholder {
+            color: #a0b8d0;
+            font-size: 0.85rem;
+        }
+
+        .price-input.required {
+            border-color: #ffaa5e;
+            background: #fffaf0;
+        }
+
+        /* 备注输入框 */
+        .remark-input {
+            width: 130px;
+            padding: 0.5rem;
+            border: 1px solid #e0e7ed;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* 底部操作栏 */
+        .action-bar {
+            background: white;
+            border-radius: 40px;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 8px 25px rgba(0,20,40,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 2rem;
+        }
+
+        .summary-info {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #2d4a6e;
+        }
+
+        .summary-item .label {
+            font-weight: 500;
+            color: #6b7f99;
+        }
+
+        .summary-item .value {
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: #1e3c4f;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-primary {
+            background: #1e3c4f;
+            color: white;
+            box-shadow: 0 8px 18px -6px #1e3c4f;
+        }
+
+        .btn-primary:hover {
+            background: #2a4a63;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: #eef2f6;
+            color: #1e2f47;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+
+        #statusMsg {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 50px;
+            background: #f8fafd;
+            text-align: center;
+            color: #2d4a6e;
+            font-weight: 500;
+            border-left: 5px solid #2a6bff;
+        }
+
+        /* 隐藏 iframe */
+        #hidden_iframe {
+            display: none;
+        }
+
+        /* 加载动画 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #2a6bff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: white;
+            border-radius: 28px;
+            color: #6b7f99;
+        }
+
+        .empty-state h3 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: #1e3c4f;
+        }
+
+        .error-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: #fff2f0;
+            border-radius: 28px;
+            color: #c74a4a;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部：显示询价单时间戳 -->
+        <div class="header">
+            <div>
+                <h1>
+                    📝 供应商报价单
+                    <span class="badge">询价专用</span>
+                </h1>
+                <div style="margin-top: 0.8rem; opacity:0.9;">请根据采购需求填写单价</div>
+            </div>
+            <div class="timestamp-card" id="timestampDisplay">
+                ⏱️ 加载中...
+            </div>
+        </div>
+
+        <!-- 供应商选择 + 信息栏 (初始隐藏，加载数据后显示) -->
+        <div id="supplierSection" style="display: none;">
+            <div class="supplier-info">
+                <div class="supplier-selector">
+                    <label for="supplierSelect">👤 报价供应商：</label>
+                    <select id="supplierSelect">
+                        <option value="">-- 请选择您的公司 --</option>
+                        <option value="Supplier A">A 公司</option>
+                        <option value="Supplier B">B 公司</option>
+                        <option value="Supplier C">C 公司</option>
+                    </select>
+                </div>
+                <div class="info-note">
+                    ⚡ 只需填写 <i>您的报价</i> 列，其他为采购需求
+                </div>
+            </div>
+        </div>
+
+        <!-- 内容容器：动态显示表格或状态 -->
+        <div id="contentContainer">
+            <div class="empty-state" id="loadingState">
+                <div class="loading" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
+                <h3>正在加载询价单...</h3>
+                <p>请稍候，正在从服务器获取数据</p>
+            </div>
+        </div>
+
+        <!-- 底部操作栏 (初始隐藏) -->
+        <div id="actionBar" style="display: none;">
+            <div class="action-bar">
+                <div class="summary-info">
+                    <div class="summary-item">
+                        <span class="label">📦 材料种类：</span>
+                        <span class="value" id="materialCount">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">💰 待报价项：</span>
+                        <span class="value" id="pendingCount">0</span>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="resetPrices()">🔄 清空价格</button>
+                    <button class="btn btn-primary" onclick="submitPrices()">📤 提交报价</button>
+                </div>
+            </div>
+            <div id="statusMsg">👆 选择供应商并填写单价后提交</div>
+        </div>
+    </div>
+
+    <!-- 隐藏 iframe 用于表单提交 -->
+    <iframe name="hidden_iframe" id="hidden_iframe"></iframe>
+
+    <script>
+        // ==================== 配置 ====================
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbx94jB9zR4iQl90HLdLVD22Eoj5YwrXEog5MG7ra8Jp1c-a7DS3WZuexBKMrUf0Rie5Iw/exec';  // 替换成您部署的供应商GAS URL
+        const PURCHASER_SHEET_ID = '1urhDY5ai6ov2mo1Ba-zgyaVsl-DgNxsxLSvScimOo2Q';
+        
+        // 从URL获取参数
+        const urlParams = new URLSearchParams(window.location.search);
+        const timestamp = urlParams.get('H');  // 例如 "2026-2-24-15:11"
+        
+        // 存储从采购GS获取的数据
+        let quotationData = null;
+        let materialRows = [];
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!timestamp) {
+                showError('缺少询价单标识 (H参数)');
+                return;
+            }
+            
+            document.getElementById('timestampDisplay').textContent = `⏱️ 询价单: ${timestamp}`;
+            loadQuotationData();
+        });
+
+        // ==================== 加载采购数据 ====================
+        function loadQuotationData() {
+            // 这里需要通过GAS代理获取采购Sheet的数据
+            // 由于前端不能直接访问Google Sheets，我们需要通过GAS获取
+            
+            const fetchUrl = `${GAS_URL}?action=getQuotation&timestamp=${encodeURIComponent(timestamp)}&sheetId=${PURCHASER_SHEET_ID}`;
+            
+            // 使用JSONP或fetch，这里用fetch
+            fetch(fetchUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        quotationData = data;
+                        materialRows = data.rows || [];
+                        renderTable();
+                        document.getElementById('supplierSection').style.display = 'block';
+                        document.getElementById('actionBar').style.display = 'block';
+                    } else {
+                        showError('加载失败: ' + (data.message || '未知错误'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showError('网络错误，请稍后重试');
+                });
+        }
+
+        // ==================== 渲染表格 ====================
+        function renderTable() {
+            const container = document.getElementById('contentContainer');
+            
+            if (!materialRows || materialRows.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>📭 没有找到材料数据</h3>
+                        <p>该询价单可能还没有添加材料</p>
+                    </div>
+                `;
+                document.getElementById('materialCount').textContent = '0';
+                document.getElementById('pendingCount').textContent = '0';
+                return;
+            }
+
+            // 过滤出当前供应商可报价的行（根据供应商列）
+            // 注意：实际应用中可能需要根据选择的供应商动态过滤，这里先显示所有行
+            const filteredRows = materialRows; // 暂时显示所有行
+
+            let tableHtml = `
+                <div class="materials-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Type</th>
+                                <th>Thick (mm)</th>
+                                <th>Size</th>
+                                <th>Surface</th>
+                                <th>TON</th>
+                                <th>PCS</th>
+                                <th>采购指定供应商</th>
+                                <th>您的报价 (RM)</th>
+                                <th>备注</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            filteredRows.forEach((row, index) => {
+                const rowNum = row.rowNum || index + 1;
+                // 供应商列可能有多个，格式化显示
+                const suppliers = row.suppliers || '未指定';
+                
+                tableHtml += `
+                    <tr data-row="${rowNum}" data-original-row="${row.rowNum}">
+                        <td><div class="row-number">${rowNum}</div></td>
+                        <td class="spec-text">${row.type || '-'}</td>
+                        <td class="spec-text">${row.thick || '-'}</td>
+                        <td class="spec-text">${row.size || '-'}</td>
+                        <td class="spec-text">${row.surface || '-'}</td>
+                        <td class="spec-text">${row.ton || '-'}</td>
+                        <td class="spec-text">${row.pcs || '-'}</td>
+                        <td><span class="supplier-tag">${suppliers}</span></td>
+                        <td>
+                            <input type="number" 
+                                   class="price-input" 
+                                   data-row="${rowNum}" 
+                                   placeholder="单价" 
+                                   min="0" 
+                                   step="0.01"
+                                   oninput="updatePendingCount()">
+                        </td>
+                        <td>
+                            <input type="text" 
+                                   class="remark-input" 
+                                   data-row="${rowNum}" 
+                                   placeholder="备注(可选)"
+                                   maxlength="50">
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = tableHtml;
+            
+            // 更新统计
+            document.getElementById('materialCount').textContent = filteredRows.length;
+            updatePendingCount();
+        }
+
+        // ==================== 更新待报价数量 ====================
+        function updatePendingCount() {
+            const priceInputs = document.querySelectorAll('.price-input');
+            let filledCount = 0;
+            priceInputs.forEach(input => {
+                if (input.value && parseFloat(input.value) > 0) {
+                    filledCount++;
+                }
+            });
+            document.getElementById('pendingCount').textContent = filledCount;
+        }
+
+        // ==================== 清空所有价格 ====================
+        function resetPrices() {
+            if (confirm('确定要清空所有已填写的单价吗？')) {
+                document.querySelectorAll('.price-input').forEach(input => {
+                    input.value = '';
+                });
+                document.querySelectorAll('.remark-input').forEach(input => {
+                    input.value = '';
+                });
+                updatePendingCount();
+                document.getElementById('statusMsg').innerHTML = '🧹 已清空所有报价';
+            }
+        }
+
+        // ==================== 提交报价 ====================
+        function submitPrices() {
+            const supplier = document.getElementById('supplierSelect').value;
+            if (!supplier) {
+                alert('请先选择您的公司');
+                return;
+            }
+
+            // 收集报价数据
+            const priceRows = [];
+            const rows = document.querySelectorAll('tr[data-row]');
+            
+            rows.forEach(row => {
+                const rowNum = row.getAttribute('data-row');
+                const originalRowNum = row.getAttribute('data-original-row');
+                const priceInput = row.querySelector('.price-input');
+                const remarkInput = row.querySelector('.remark-input');
+                
+                const price = priceInput ? priceInput.value : '';
+                const remark = remarkInput ? remarkInput.value : '';
+                
+                // 找到对应的原始数据
+                const originalRow = materialRows.find(r => r.rowNum == originalRowNum) || {};
+                
+                priceRows.push({
+                    rowNum: originalRowNum,
+                    type: originalRow.type || '',
+                    thick: originalRow.thick || '',
+                    size: originalRow.size || '',
+                    surface: originalRow.surface || '',
+                    ton: originalRow.ton || '',
+                    pcs: originalRow.pcs || '',
+                    suppliers: originalRow.suppliers || '',
+                    price: price || '',
+                    remark: remark || '',
+                    quotedBy: supplier
+                });
+            });
+
+            // 构建提交数据
+            const payload = {
+                action: 'saveSupplierQuotation',
+                timestamp: timestamp,
+                supplier: supplier,
+                rows: priceRows,
+                purchaserSheetId: PURCHASER_SHEET_ID
+            };
+
+            // 创建隐藏表单提交
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = GAS_URL;
+            form.target = 'hidden_iframe';
+            form.style.display = 'none';
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'data';
+            input.value = JSON.stringify(payload);
+            form.appendChild(input);
+
+            document.body.appendChild(form);
+            
+            const statusDiv = document.getElementById('statusMsg');
+            statusDiv.innerHTML = '⏳ 提交中，请稍候...';
+            
+            form.submit();
+
+            // 模拟成功反馈（实际应该由GAS返回后处理）
+            setTimeout(() => {
+                statusDiv.innerHTML = '✅ 报价已成功提交！感谢您的参与。';
+                // 可选：禁用提交按钮防止重复提交
+                document.querySelector('.btn-primary').disabled = true;
+            }, 2000);
+
+            setTimeout(() => {
+                document.body.removeChild(form);
+            }, 5000);
+        }
+
+        // ==================== 显示错误 ====================
+        function showError(message) {
+            const container = document.getElementById('contentContainer');
+            container.innerHTML = `
+                <div class="error-state">
+                    <h3>❌ 加载失败</h3>
+                    <p>${message}</p>
+                    <p style="margin-top: 20px;">
+                        <button class="btn btn-secondary" onclick="location.reload()">🔄 重新加载</button>
+                    </p>
+                </div>
+            `;
+            document.getElementById('timestampDisplay').textContent = '⏱️ 加载失败';
+        }
+    </script>
+</body>
+</html>
