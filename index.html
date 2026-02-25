@@ -376,6 +376,22 @@
             border-radius: 28px;
             color: #c74a4a;
         }
+
+        /* 加载指示器 */
+        .loading-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #1e3c4f;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
     </style>
 </head>
 <body>
@@ -415,9 +431,11 @@
         <!-- 内容容器：动态显示表格或状态 -->
         <div id="contentContainer">
             <div class="empty-state" id="loadingState">
-                <div class="loading" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
-                <h3>正在加载询价单...</h3>
-                <p>请稍候，正在从服务器获取数据</p>
+                <div class="loading-indicator">
+                    <div class="spinner"></div>
+                    <h3>正在加载询价单...</h3>
+                    <p>请稍候，正在从服务器获取数据</p>
+                </div>
             </div>
         </div>
 
@@ -443,21 +461,24 @@
         </div>
     </div>
 
-    <!-- 隐藏 iframe 用于表单提交 -->
-    <iframe name="hidden_iframe" id="hidden_iframe"></iframe>
+    <!-- 隐藏 iframe 用于所有表单提交 -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display: none;"></iframe>
 
     <script>
         // ==================== 配置 ====================
-        // 重要：替换成您实际部署的GAS URL
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbydtrm8iPkjUjZPIOxaCrhJSo2ciaO7kGphV4tHF42GYf2_QozUaFwtRkcADhr3Fb7P4g/exec';
+        // 替换成您的GAS URL
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbyaLxNeNnHcR3mL9yJWf83zw5QhG9yAlOJP5dJVHioegb7c5yhZ2F_yLNc-DKQnfdTbbQ/exec';
         
         // 从URL获取参数
         const urlParams = new URLSearchParams(window.location.search);
         const timestamp = urlParams.get('H');  // 例如 "2026-2-24-15:11"
         
-        // 存储从采购GS获取的数据
+        // 存储数据
         let quotationData = null;
         let materialRows = [];
+        
+        // 用于跟踪当前操作
+        let currentOperation = null;
 
         // ==================== 初始化 ====================
         document.addEventListener('DOMContentLoaded', function() {
@@ -467,52 +488,114 @@
             }
             
             document.getElementById('timestampDisplay').textContent = `⏱️ 询价单: ${timestamp}`;
+            
+            // 加载数据
             loadQuotationData();
             
             // 监听来自iframe的消息
             window.addEventListener('message', function(event) {
-                if (event.data && event.data.type === 'QUOTATION_SUBMITTED') {
-                    if (event.data.status === 'success') {
-                        document.getElementById('statusMsg').innerHTML = '✅ 报价已成功提交！感谢您的参与。';
-                        document.getElementById('submitBtn').disabled = true;
-                    } else {
-                        document.getElementById('statusMsg').innerHTML = '❌ 提交失败: ' + (event.data.message || '未知错误');
-                        document.getElementById('submitBtn').disabled = false;
+                console.log('收到消息:', event.data);
+                
+                if (event.data && event.data.type === 'QUOTATION_RESPONSE') {
+                    if (currentOperation === 'load') {
+                        handleLoadResponse(event.data);
+                    } else if (currentOperation === 'submit') {
+                        handleSubmitResponse(event.data);
                     }
+                    currentOperation = null;
                 }
             });
         });
 
-        // ==================== 加载采购数据 ====================
+        // ==================== 使用iframe加载数据 ====================
         function loadQuotationData() {
-            const fetchUrl = `${GAS_URL}?action=getQuotation&timestamp=${encodeURIComponent(timestamp)}`;
+            currentOperation = 'load';
             
             // 显示加载状态
             document.getElementById('contentContainer').innerHTML = `
                 <div class="empty-state">
-                    <div class="loading" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
-                    <h3>正在加载询价单...</h3>
-                    <p>请稍候，正在从服务器获取数据</p>
+                    <div class="loading-indicator">
+                        <div class="spinner"></div>
+                        <h3>正在加载询价单...</h3>
+                        <p>请稍候，正在从服务器获取数据</p>
+                    </div>
                 </div>
             `;
             
-            fetch(fetchUrl)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        quotationData = data;
-                        materialRows = data.rows || [];
-                        renderTable();
-                        document.getElementById('supplierSection').style.display = 'block';
-                        document.getElementById('actionBar').style.display = 'block';
-                    } else {
-                        showError('加载失败: ' + (data.message || '未知错误'));
+            // 准备数据
+            const payload = {
+                action: 'getQuotation',
+                timestamp: timestamp
+            };
+            
+            // 创建隐藏表单并提交到iframe
+            submitToIframe(payload);
+        }
+
+        // ==================== 处理加载响应 ====================
+        function handleLoadResponse(data) {
+            if (data.status === 'success') {
+                quotationData = data;
+                materialRows = data.rows || [];
+                renderTable();
+                document.getElementById('supplierSection').style.display = 'block';
+                document.getElementById('actionBar').style.display = 'block';
+                document.getElementById('statusMsg').innerHTML = '👆 选择供应商并填写单价后提交';
+            } else {
+                showError('加载失败: ' + (data.message || '未知错误'));
+            }
+        }
+
+        // ==================== 处理提交响应 ====================
+        function handleSubmitResponse(data) {
+            if (data.status === 'success') {
+                document.getElementById('statusMsg').innerHTML = '✅ 报价已成功提交！感谢您的参与。';
+                document.getElementById('submitBtn').disabled = true;
+            } else {
+                document.getElementById('statusMsg').innerHTML = '❌ 提交失败: ' + (data.message || '未知错误');
+                document.getElementById('submitBtn').disabled = false;
+            }
+        }
+
+        // ==================== 通用提交到iframe的函数 ====================
+        function submitToIframe(payload) {
+            // 创建隐藏表单
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = GAS_URL;
+            form.target = 'hidden_iframe';
+            form.style.display = 'none';
+
+            // 添加数据
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'data';
+            input.value = JSON.stringify(payload);
+            form.appendChild(input);
+
+            // 添加到页面并提交
+            document.body.appendChild(form);
+            form.submit();
+
+            // 设置超时
+            setTimeout(() => {
+                if (currentOperation) {
+                    if (currentOperation === 'load') {
+                        showError('加载超时，请重试');
+                    } else if (currentOperation === 'submit') {
+                        document.getElementById('statusMsg').innerHTML = '⚠️ 提交超时，请重试';
+                        document.getElementById('submitBtn').disabled = false;
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showError('网络错误，请稍后重试。错误信息: ' + error.message);
-                });
+                    currentOperation = null;
+                }
+            }, 15000);
+
+            // 5秒后移除表单
+            setTimeout(() => {
+                if (document.body.contains(form)) {
+                    document.body.removeChild(form);
+                }
+            }, 5000);
         }
 
         // ==================== 渲染表格 ====================
@@ -553,19 +636,18 @@
 
             materialRows.forEach((row, index) => {
                 const rowNum = index + 1;
-                // 供应商列可能有多个，格式化显示
                 const suppliers = row.suppliers || '未指定';
                 
                 tableHtml += `
                     <tr data-row="${rowNum}" data-original-index="${index}">
                         <td><div class="row-number">${rowNum}</div></td>
-                        <td class="spec-text">${row.type || '-'}</td>
-                        <td class="spec-text">${row.thick || '-'}</td>
-                        <td class="spec-text">${row.size || '-'}</td>
-                        <td class="spec-text">${row.surface || '-'}</td>
-                        <td class="spec-text">${row.ton || '-'}</td>
-                        <td class="spec-text">${row.pcs || '-'}</td>
-                        <td><span class="supplier-tag">${suppliers}</span></td>
+                        <td class="spec-text">${escapeHtml(row.type || '-')}</td>
+                        <td class="spec-text">${escapeHtml(row.thick || '-')}</td>
+                        <td class="spec-text">${escapeHtml(row.size || '-')}</td>
+                        <td class="spec-text">${escapeHtml(row.surface || '-')}</td>
+                        <td class="spec-text">${escapeHtml(row.ton || '-')}</td>
+                        <td class="spec-text">${escapeHtml(row.pcs || '-')}</td>
+                        <td><span class="supplier-tag">${escapeHtml(suppliers)}</span></td>
                         <td>
                             <input type="number" 
                                    class="price-input" 
@@ -597,6 +679,16 @@
             // 更新统计
             document.getElementById('materialCount').textContent = materialRows.length;
             updatePendingCount();
+        }
+
+        // ==================== HTML转义 ====================
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
         // ==================== 更新待报价数量 ====================
@@ -645,7 +737,6 @@
                 const price = priceInput ? priceInput.value : '';
                 const remark = remarkInput ? remarkInput.value : '';
                 
-                // 找到对应的原始数据
                 const originalRow = materialRows[index] || {};
                 
                 priceRows.push({
@@ -671,43 +762,15 @@
                 rows: priceRows
             };
 
-            // 禁用提交按钮防止重复提交
+            // 禁用提交按钮
             document.getElementById('submitBtn').disabled = true;
+            document.getElementById('statusMsg').innerHTML = '⏳ 提交中，请稍候...';
             
-            // 创建隐藏表单提交
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = GAS_URL;
-            form.target = 'hidden_iframe';
-            form.style.display = 'none';
-
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'data';
-            input.value = JSON.stringify(payload);
-            form.appendChild(input);
-
-            document.body.appendChild(form);
+            // 设置当前操作
+            currentOperation = 'submit';
             
-            const statusDiv = document.getElementById('statusMsg');
-            statusDiv.innerHTML = '⏳ 提交中，请稍候...';
-            
-            form.submit();
-
-            // 10秒后如果没有收到响应，恢复按钮状态
-            setTimeout(() => {
-                if (document.getElementById('submitBtn').disabled) {
-                    document.getElementById('submitBtn').disabled = false;
-                    statusDiv.innerHTML = '⚠️ 提交超时，请重试或检查网络';
-                }
-            }, 10000);
-
-            // 5秒后移除表单
-            setTimeout(() => {
-                if (document.body.contains(form)) {
-                    document.body.removeChild(form);
-                }
-            }, 5000);
+            // 提交到iframe
+            submitToIframe(payload);
         }
 
         // ==================== 显示错误 ====================
@@ -716,13 +779,15 @@
             container.innerHTML = `
                 <div class="error-state">
                     <h3>❌ 加载失败</h3>
-                    <p>${message}</p>
+                    <p>${escapeHtml(message)}</p>
                     <p style="margin-top: 20px;">
                         <button class="btn btn-secondary" onclick="location.reload()">🔄 重新加载</button>
                     </p>
                 </div>
             `;
             document.getElementById('timestampDisplay').textContent = '⏱️ 加载失败';
+            document.getElementById('supplierSection').style.display = 'none';
+            document.getElementById('actionBar').style.display = 'none';
         }
     </script>
 </body>
