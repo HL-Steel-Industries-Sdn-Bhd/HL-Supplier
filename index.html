@@ -306,6 +306,13 @@
             transform: translateY(2px);
             box-shadow: none;
         }
+        
+        .btn-primary:disabled {
+            background: #95a5a6;
+            transform: none;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
 
         .btn-secondary {
             background: #eef2f6;
@@ -429,7 +436,7 @@
                 </div>
                 <div class="btn-group">
                     <button class="btn btn-secondary" onclick="resetPrices()">🔄 清空价格</button>
-                    <button class="btn btn-primary" onclick="submitPrices()">📤 提交报价</button>
+                    <button class="btn btn-primary" onclick="submitPrices()" id="submitBtn">📤 提交报价</button>
                 </div>
             </div>
             <div id="statusMsg">👆 选择供应商并填写单价后提交</div>
@@ -441,8 +448,8 @@
 
     <script>
         // ==================== 配置 ====================
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbx94jB9zR4iQl90HLdLVD22Eoj5YwrXEog5MG7ra8Jp1c-a7DS3WZuexBKMrUf0Rie5Iw/exec';  // 替换成您部署的供应商GAS URL
-        const PURCHASER_SHEET_ID = '1urhDY5ai6ov2mo1Ba-zgyaVsl-DgNxsxLSvScimOo2Q';
+        // 重要：替换成您实际部署的GAS URL
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbydtrm8iPkjUjZPIOxaCrhJSo2ciaO7kGphV4tHF42GYf2_QozUaFwtRkcADhr3Fb7P4g/exec';
         
         // 从URL获取参数
         const urlParams = new URLSearchParams(window.location.search);
@@ -461,16 +468,34 @@
             
             document.getElementById('timestampDisplay').textContent = `⏱️ 询价单: ${timestamp}`;
             loadQuotationData();
+            
+            // 监听来自iframe的消息
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'QUOTATION_SUBMITTED') {
+                    if (event.data.status === 'success') {
+                        document.getElementById('statusMsg').innerHTML = '✅ 报价已成功提交！感谢您的参与。';
+                        document.getElementById('submitBtn').disabled = true;
+                    } else {
+                        document.getElementById('statusMsg').innerHTML = '❌ 提交失败: ' + (event.data.message || '未知错误');
+                        document.getElementById('submitBtn').disabled = false;
+                    }
+                }
+            });
         });
 
         // ==================== 加载采购数据 ====================
         function loadQuotationData() {
-            // 这里需要通过GAS代理获取采购Sheet的数据
-            // 由于前端不能直接访问Google Sheets，我们需要通过GAS获取
+            const fetchUrl = `${GAS_URL}?action=getQuotation&timestamp=${encodeURIComponent(timestamp)}`;
             
-            const fetchUrl = `${GAS_URL}?action=getQuotation&timestamp=${encodeURIComponent(timestamp)}&sheetId=${PURCHASER_SHEET_ID}`;
+            // 显示加载状态
+            document.getElementById('contentContainer').innerHTML = `
+                <div class="empty-state">
+                    <div class="loading" style="width: 40px; height: 40px; margin-bottom: 20px;"></div>
+                    <h3>正在加载询价单...</h3>
+                    <p>请稍候，正在从服务器获取数据</p>
+                </div>
+            `;
             
-            // 使用JSONP或fetch，这里用fetch
             fetch(fetchUrl)
                 .then(response => response.json())
                 .then(data => {
@@ -486,7 +511,7 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showError('网络错误，请稍后重试');
+                    showError('网络错误，请稍后重试。错误信息: ' + error.message);
                 });
         }
 
@@ -505,10 +530,6 @@
                 document.getElementById('pendingCount').textContent = '0';
                 return;
             }
-
-            // 过滤出当前供应商可报价的行（根据供应商列）
-            // 注意：实际应用中可能需要根据选择的供应商动态过滤，这里先显示所有行
-            const filteredRows = materialRows; // 暂时显示所有行
 
             let tableHtml = `
                 <div class="materials-table">
@@ -530,13 +551,13 @@
                         <tbody>
             `;
 
-            filteredRows.forEach((row, index) => {
-                const rowNum = row.rowNum || index + 1;
+            materialRows.forEach((row, index) => {
+                const rowNum = index + 1;
                 // 供应商列可能有多个，格式化显示
                 const suppliers = row.suppliers || '未指定';
                 
                 tableHtml += `
-                    <tr data-row="${rowNum}" data-original-row="${row.rowNum}">
+                    <tr data-row="${rowNum}" data-original-index="${index}">
                         <td><div class="row-number">${rowNum}</div></td>
                         <td class="spec-text">${row.type || '-'}</td>
                         <td class="spec-text">${row.thick || '-'}</td>
@@ -548,7 +569,7 @@
                         <td>
                             <input type="number" 
                                    class="price-input" 
-                                   data-row="${rowNum}" 
+                                   data-index="${index}" 
                                    placeholder="单价" 
                                    min="0" 
                                    step="0.01"
@@ -557,7 +578,7 @@
                         <td>
                             <input type="text" 
                                    class="remark-input" 
-                                   data-row="${rowNum}" 
+                                   data-index="${index}" 
                                    placeholder="备注(可选)"
                                    maxlength="50">
                         </td>
@@ -574,7 +595,7 @@
             container.innerHTML = tableHtml;
             
             // 更新统计
-            document.getElementById('materialCount').textContent = filteredRows.length;
+            document.getElementById('materialCount').textContent = materialRows.length;
             updatePendingCount();
         }
 
@@ -617,8 +638,7 @@
             const rows = document.querySelectorAll('tr[data-row]');
             
             rows.forEach(row => {
-                const rowNum = row.getAttribute('data-row');
-                const originalRowNum = row.getAttribute('data-original-row');
+                const index = row.getAttribute('data-original-index');
                 const priceInput = row.querySelector('.price-input');
                 const remarkInput = row.querySelector('.remark-input');
                 
@@ -626,10 +646,10 @@
                 const remark = remarkInput ? remarkInput.value : '';
                 
                 // 找到对应的原始数据
-                const originalRow = materialRows.find(r => r.rowNum == originalRowNum) || {};
+                const originalRow = materialRows[index] || {};
                 
                 priceRows.push({
-                    rowNum: originalRowNum,
+                    rowNum: parseInt(index) + 1,
                     type: originalRow.type || '',
                     thick: originalRow.thick || '',
                     size: originalRow.size || '',
@@ -648,10 +668,12 @@
                 action: 'saveSupplierQuotation',
                 timestamp: timestamp,
                 supplier: supplier,
-                rows: priceRows,
-                purchaserSheetId: PURCHASER_SHEET_ID
+                rows: priceRows
             };
 
+            // 禁用提交按钮防止重复提交
+            document.getElementById('submitBtn').disabled = true;
+            
             // 创建隐藏表单提交
             const form = document.createElement('form');
             form.method = 'POST';
@@ -672,15 +694,19 @@
             
             form.submit();
 
-            // 模拟成功反馈（实际应该由GAS返回后处理）
+            // 10秒后如果没有收到响应，恢复按钮状态
             setTimeout(() => {
-                statusDiv.innerHTML = '✅ 报价已成功提交！感谢您的参与。';
-                // 可选：禁用提交按钮防止重复提交
-                document.querySelector('.btn-primary').disabled = true;
-            }, 2000);
+                if (document.getElementById('submitBtn').disabled) {
+                    document.getElementById('submitBtn').disabled = false;
+                    statusDiv.innerHTML = '⚠️ 提交超时，请重试或检查网络';
+                }
+            }, 10000);
 
+            // 5秒后移除表单
             setTimeout(() => {
-                document.body.removeChild(form);
+                if (document.body.contains(form)) {
+                    document.body.removeChild(form);
+                }
             }, 5000);
         }
 
